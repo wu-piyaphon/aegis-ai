@@ -1,0 +1,57 @@
+# Pre-commit hooks - runs before git commit
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      glob: "*.{js,jsx,ts,tsx,json,css,md,mdx}"
+      run: pnpm prettier --write {staged_files} && git add {staged_files}
+      stage_fixed: true
+
+    eslint:
+      glob: "*.{js,jsx,ts,tsx}"
+      run: pnpm eslint --fix {staged_files}
+      stage_fixed: true
+
+    type-check:
+      run: pnpm type-check
+
+# Commit-msg hook - validates commit message format
+commit-msg:
+  commands:
+    conventional-commit:
+      run: |
+        commit_msg=$(cat {1})
+        if ! echo "$commit_msg" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\(.+\))?: .+"; then
+          echo "❌ Commit message must follow Conventional Commits format:"
+          echo "   <type>[optional scope]: <description>"
+          echo ""
+          echo "   Types: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert"
+          echo ""
+          echo "   Examples:"
+          echo "   - feat: add user authentication"
+          echo "   - fix(api): resolve null pointer exception"
+          echo "   - docs: update README with installation steps"
+          exit 1
+        fi
+
+# Post-checkout hook - runs after checkout
+post-checkout:
+  commands:
+    deps-check:
+      run: |
+        if git diff --name-only HEAD@{1} HEAD | grep -q "package.json\|pnpm-lock.yaml"; then
+          echo ""
+          echo "📦 Dependencies may have changed. Consider running:"
+          echo "   pnpm install"
+          echo ""
+        fi
+
+# Post-merge hook - runs after successful merge
+post-merge:
+  commands:
+    deps-install:
+      run: |
+        if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q "package.json\|pnpm-lock.yaml"; then
+          echo "📦 Dependencies changed, installing..."
+          pnpm install
+        fi
